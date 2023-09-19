@@ -1,9 +1,3 @@
-/*
-    Mohamed Ayoub Eleuch
-    m.eleuch@innopolis.university
-    CS-04
-*/
-
 #include<iostream>
 #include<vector>
 
