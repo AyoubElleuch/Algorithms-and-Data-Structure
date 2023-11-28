@@ -1,53 +1,65 @@
-#include <fcntl.h>
-#include <linux/input.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
 #include <unistd.h>
+#include <linux/input.h>
 #include <string.h>
 
-struct shortcut {
-    char name[20];
-    int keycode;
+#define MAX_SHORTCUTS 3
+#define MAX_SHORTCUT_LENGTH 6
+
+// Define the custom shortcuts
+char shortcuts[MAX_SHORTCUTS][MAX_SHORTCUT_LENGTH] = {
+    "P+E",
+    "C+A+P",
+    "F1+F2"
 };
 
-static const struct shortcut shortcuts[] = {
-    {"PE+", 0x31}, {"CAP+P", 0x10}, {"CUSTOM", 0x45}
+// Define the messages for the custom shortcuts
+char shortcut_messages[MAX_SHORTCUTS][50] = {
+    "I passed the Exam!",
+    "Get some cappuccino!",
+    "This is a custom shortcut!"
 };
 
-int main() {
-    int fd = open("/dev/input/by-path/platform-i8042-serio-0-event-kbd", O_RDONLY);
-    if (fd < 0) {
-        perror("Error opening keyboard device");
-        return 1;
+// Function to check if a shortcut is pressed
+int is_shortcut_pressed(char *shortcut, int shortcut_length, int *keys, int num_keys) {
+    int i, j;
+    int shortcut_keys[MAX_SHORTCUT_LENGTH];
+    int shortcut_num_keys = 0;
+
+    // Convert the shortcut string to an array of key codes
+    for (i = 0; i < shortcut_length; i++) {
+        if (shortcut[i] == '+') {
+            continue;
+        }
+        shortcut_keys[shortcut_num_keys++] = shortcut[i];
     }
 
-    printf("Available shortcuts:\n");
-    for (int i = 0; i < sizeof(shortcuts) / sizeof(struct shortcut); i++) {
-        printf("%s\n", shortcuts[i].name);
-    }
-
-    struct input_event ev;
-    while (read(fd, &ev, sizeof(struct input_event))) {
-        switch (ev.type) {
-            case INPUT_EVENT_KEY:
-                switch (ev.code) {
-                    case KEY_PRESSED:
-                    case KEY_REPEATED:
-                    case KEY_RELEASED:
-                        for (int i = 0; i < sizeof(shortcuts) / sizeof(struct shortcut); i++) {
-                            if (ev.value == shortcuts[i].keycode) {
-                                printf("EXECUTED SHORTCUT: %s\n", shortcuts[i].name);
-                            }
-                        }
-                        break;
-                    default:
-                        break;
+    // Check if the shortcut is pressed
+    if (shortcut_num_keys == num_keys) {
+        for (i = 0; i < num_keys; i++) {
+            for (j = 0; j < shortcut_num_keys; j++) {
+                if (keys[i] == shortcut_keys[j]) {
+                    break;
                 }
+            }
+            if (j == shortcut_num_keys) {
                 break;
-            default:
-                break;
+            }
+        }
+        if (i == num_keys) {
+            return 1;
         }
     }
 
-    close(fd);
     return 0;
 }
+
+int main() {
+    int fd;
+    struct input_event ev;
+    int shortcut_pressed;
+    int keys_pressed[6];
+    int num_keys_pressed = 0;
+    int i
