@@ -62,4 +62,78 @@ int main() {
     int shortcut_pressed;
     int keys_pressed[6];
     int num_keys_pressed = 0;
-    int i
+    int i, j;
+
+    // Open the keyboard device file
+    fd = open("/dev/input/by-path/platform-i8042-serio-0-event-kbd", O_RDONLY);
+    if (fd == -1) {
+        perror("open");
+        exit(1);
+    }
+
+    // Open the output file for appending
+    FILE *f = fopen("ex1.txt", "a");
+    if (f == NULL) {
+        perror("fopen");
+        exit(1);
+    }
+
+    // Print the available shortcuts
+    printf("Available shortcuts:\n");
+    for (i = 0; i < MAX_SHORTCUTS; i++) {
+        printf("%s -> %s\n", shortcuts[i], shortcut_messages[i]);
+    }
+
+    // Read keyboard events and handle shortcuts
+    while (1) {
+        if (read(fd, &ev, sizeof(ev)) < sizeof(ev)) {
+            perror("read");
+            exit(1);
+        }
+
+        // Handle only PRESSED, REPEATED, and RELEASED events
+        if (ev.type == EV_KEY && (ev.value == 0 || ev.value == 1 || ev.value == 2)) {
+            // Handle shortcuts
+            shortcut_pressed = 0;
+            if (num_keys_pressed > 0 && ev.value == 0) {
+                for (i = 0; i < MAX_SHORTCUTS; i++) {
+                    if (is_shortcut_pressed(shortcuts[i], strlen(shortcuts[i]), keys_pressed, num_keys_pressed)) {
+                        fprintf(f, "%s\n", shortcut_messages[i]);
+                        shortcut_pressed = 1;
+                        break;
+                    }
+                }
+            }
+
+            // Handle output events
+            if (!shortcut_pressed) {
+                if (ev.value == 0) {
+                    for (i = 0; i < num_keys_pressed; i++) {
+                        if (keys_pressed[i] == ev.code) {
+                            for (j = i; j < num_keys_pressed - 1; j++) {
+                                keys_pressed[j] = keys_pressed[j + 1];
+                            }
+                            num_keys_pressed--;
+                            break;
+                        }
+                    }
+                    fprintf(f, "RELEASED 0x%04x (%d)\n", ev.code, ev.code);
+                } else if (ev.value == 1 || ev.value == 2) {
+                    keys_pressed[num_keys_pressed++] = ev.code;
+                    fprintf(f, "PRESSED 0x%04x (%d)\n", ev.code, ev.code);
+                }
+            }
+
+            // Terminate the program on E+X
+            if (num_keys_pressed == 2 && keys_pressed[0] == 18 && keys_pressed[1] == 45) {
+                fclose(f);
+                close(fd);
+                exit(0);
+            }
+
+            fflush(f);
+        }
+    }
+
+    return 0;
+}
